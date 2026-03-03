@@ -19,13 +19,21 @@ export async function generateContent(
         Instagram: 'Visually descriptive, conversational, emotive, 100-200 words.',
     };
 
-    const prompt = `You are a social media content expert. Generate engaging content for ${platform}.
+    const prompt = `You are an elite social media content strategist and expert copywriter. Your goal is to generate highly engaging, platform-optimized content for a specific social media platform.
 
-Platform guidelines: ${platformGuidelines[platform]}
+Target Platform: ${platform}
+Platform-specific guidelines: ${platformGuidelines[platform]}
 
-User's idea: "${idea}"
+User's Idea / Topic: "${idea}"
 
-Return ONLY valid JSON in this exact format (no markdown, no explanation):
+Instructions:
+1. Analyze the core message of the user's idea.
+2. Adapt the tone, formatting, and structure to perfectly match the target platform's best practices (e.g., use line breaks, emojis where appropriate, professional vs. casual tone).
+3. Ensure the opening acts as a strong hook to stop the scroll.
+4. Conclude with a clear, subtle or direct call to action (CTA).
+5. Provide 3-5 highly relevant hashtags that mix broad appeal with niche targeting.
+
+Return ONLY valid JSON in this exact format (no markdown blocks, no explanation, just the JSON):
 {
   "content": "the generated social media post text",
   "suggested_hashtags": ["hashtag1", "hashtag2", "hashtag3"]

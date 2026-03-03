@@ -18,6 +18,41 @@ const PLATFORM_META: Record<Platform, { icon: string; desc: string }> = {
   Instagram: { icon: '📸', desc: 'Visual & casual' },
 };
 
+/* ── Copy Button Component ── */
+function CopyButton({ text, className = '' }: { text: string; className?: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy text', err);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className={`p-1.5 rounded-lg bg-white shadow-sm border border-gray-200 hover:border-blue-300 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/50 flex items-center gap-1.5 text-gray-500 hover:text-blue-600 ${className}`}
+      title="Copy to clipboard"
+    >
+      {copied ? (
+        <>
+          <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+          <span className="text-xs font-semibold text-green-600 pr-1">Copied!</span>
+        </>
+      ) : (
+        <>
+          <svg className="w-4 h-4 text-gray-400 group-hover:text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+          <span className="text-xs font-medium text-gray-500 group-hover:text-blue-600 pr-1">Copy</span>
+        </>
+      )}
+    </button>
+  );
+}
+
 /* ── Score Bar Component ── */
 function ScoreBar({ label, score, color }: { label: string; score: number; color: string }) {
   return (
@@ -55,9 +90,8 @@ function OptimizationCard({
         <div>
           <h3 className="font-semibold text-gray-800 capitalize">{type} Optimization Result</h3>
           <span
-            className={`text-xs font-medium px-2 py-0.5 rounded-full mt-1 inline-block ${
-              improved ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-            }`}
+            className={`text-xs font-medium px-2 py-0.5 rounded-full mt-1 inline-block ${improved ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+              }`}
           >
             {improved ? `+${improvement}% improvement` : 'No improvement'}
           </span>
@@ -74,7 +108,10 @@ function OptimizationCard({
         </div>
         {/* After */}
         <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-          <p className="text-xs font-semibold text-blue-600 mb-2">AFTER</p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold text-blue-600">AFTER</p>
+            <CopyButton text={result.improved_content} />
+          </div>
           <p className="text-sm text-gray-700 leading-relaxed">{result.improved_content}</p>
           <div className="mt-3 text-xs text-blue-500">Score: {result.improved_score.final_score}/100</div>
         </div>
@@ -206,11 +243,10 @@ export default function CreatePage() {
                 key={p}
                 id={`platform-${p.toLowerCase()}`}
                 onClick={() => setPlatform(p)}
-                className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium border transition-all ${
-                  platform === p
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600'
-                }`}
+                className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium border transition-all ${platform === p
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600'
+                  }`}
               >
                 <span className="mr-1.5">{PLATFORM_META[p].icon}</span>
                 {p}
@@ -271,9 +307,12 @@ export default function CreatePage() {
             {/* Content header */}
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-gray-800">Generated Content</h2>
-              <span className="text-xs bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full font-medium">
-                {post.platform}
-              </span>
+              <div className="flex items-center gap-2">
+                <CopyButton text={post.content} />
+                <span className="text-xs bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full font-medium">
+                  {post.platform}
+                </span>
+              </div>
             </div>
 
             {/* Content text */}

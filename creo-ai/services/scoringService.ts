@@ -13,23 +13,23 @@ export async function scoreContent(
     content: string,
     platform: Platform
 ): Promise<ScoreResult> {
-    const prompt = `You are a social media engagement expert. Score the following ${platform} post.
+    const prompt = `You are a world-class social media analyst and engagement expert. Your task is to critically evaluate a social media post intended for ${platform}.
 
 Post content:
 "${content}"
 
-Score each dimension from 0 to 100:
-- hook_score: How compelling and attention-grabbing is the opening?
-- clarity_score: How clear and easy to understand is the message?
-- cta_score: How effective is the call-to-action (or implied action)?
-- final_score: Overall engagement potential for ${platform} (weighted average)
+Evaluate the post based on the following strict rubric (0 to 100 scale for each):
+- hook_score (0-100): Does the first sentence immediately grab attention, raise curiosity, or present a compelling value proposition?
+- clarity_score (0-100): Is the core message easy to understand? Is the formatting readable? Are there any confusing sentences?
+- cta_score (0-100): Is there a clear next step or prompt for engagement (e.g., "drop a comment", "click the link")? Is it natural and effective?
+- final_score (0-100): Overall potential for high engagement, virality, and alignment with ${platform} algorithms.
 
-Return ONLY valid JSON in this exact format (no markdown, no explanation):
+Return ONLY valid JSON in this exact format (no markdown blocks or explanations, just the JSON):
 {
-  "hook_score": 75,
-  "clarity_score": 80,
-  "cta_score": 70,
-  "final_score": 75
+  "hook_score": <number 0-100 here>,
+  "clarity_score": <number 0-100 here>,
+  "cta_score": <number 0-100 here>,
+  "final_score": <number 0-100 here>
 }`;
 
     const result = await invokeModel<ScoreResult>(prompt);

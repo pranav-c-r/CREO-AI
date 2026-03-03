@@ -6,7 +6,7 @@
 import { invokeModel } from '@/lib/bedrockClient';
 import { scoreContent } from '@/services/scoringService';
 import { dynamoDb } from '@/lib/dynamoClient';
-import { PutCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 import { OptimizationResult, Platform, Post } from '@/types/post';
 
@@ -14,18 +14,22 @@ const OPTIMIZATIONS_TABLE = process.env.OPTIMIZATIONS_TABLE!;
 const POSTS_TABLE = process.env.POSTS_TABLE!;
 
 /**
- * Fetch a post from DynamoDB by post_id and user_id
+ * Fetch a post from DynamoDB by post_id and user_id using Query since we lack created_at sort key
  */
 async function fetchPost(post_id: string, user_id: string): Promise<Post> {
-    // We need to query by post_id since we know user_id
-    const { Item } = await dynamoDb.send(
-        new GetCommand({
+    const { Items } = await dynamoDb.send(
+        new QueryCommand({
             TableName: POSTS_TABLE,
-            Key: { user_id, post_id },
+            KeyConditionExpression: 'user_id = :uid',
+            FilterExpression: 'post_id = :pid',
+            ExpressionAttributeValues: {
+                ':uid': user_id,
+                ':pid': post_id,
+            },
         })
     );
-    if (!Item) throw new Error(`Post ${post_id} not found`);
-    return Item as Post;
+    if (!Items || Items.length === 0) throw new Error(`Post ${post_id} not found`);
+    return Items[0] as Post;
 }
 
 /**
@@ -109,16 +113,20 @@ async function runOptimization(
 export async function improveHook(post_id: string, user_id: string): Promise<OptimizationResult> {
     const post = await fetchPost(post_id, user_id);
 
-    const prompt = `You are a social media copywriting expert. The following ${post.platform} post needs a stronger opening hook.
+    const prompt = `You are an expert social media copywriter specializing in viral content. Your task is to dramatically improve the opening "hook" of the following ${post.platform} post.
 
 Original post:
 "${post.content}"
 
-Rewrite the post with a more compelling, attention-grabbing opening. Keep the core message intact.
+Instructions:
+1. Analyze the post and identify its core value proposition.
+2. Rewrite the opening 1-2 sentences to be extremely compelling, curiosity-inducing, or surprisingly insightful. The goal is to maximize the "stop-scrolling" effect.
+3. Ensure the tone matches the rest of the post and is suitable for ${post.platform}.
+4. Do not alter the core message or the call-to-action; focus solely on making the beginning irresistible.
 
-Return ONLY valid JSON in this exact format:
+Return ONLY valid JSON in this exact format (no markdown blocks or explanations, just the JSON):
 {
-  "improved_content": "the full rewritten post with better hook"
+  "improved_content": "the full rewritten post with the newly optimized powerful hook"
 }`;
 
     return runOptimization(post, 'hook', prompt);
@@ -130,16 +138,20 @@ Return ONLY valid JSON in this exact format:
 export async function improveCTA(post_id: string, user_id: string): Promise<OptimizationResult> {
     const post = await fetchPost(post_id, user_id);
 
-    const prompt = `You are a social media copywriting expert. The following ${post.platform} post needs a stronger call-to-action.
+    const prompt = `You are an expert social media copywriter specializing in conversion rate optimization and community engagement. Your task is to improve the Call-To-Action (CTA) of the following ${post.platform} post.
 
 Original post:
 "${post.content}"
 
-Rewrite the post with a clearer, more compelling call-to-action at the end or woven throughout. Keep the opening and core message the same.
+Instructions:
+1. Review the post content.
+2. Rewrite the ending (or weave throughout) to include a highly effective, clear, and compelling CTA.
+3. Depending on the post's context, the CTA could encourage commenting, sharing, clicking a link, or saving the post. Ensure the CTA feels natural and drives immediate action.
+4. Keep the original opening and body intact as much as possible, only modifying the text to integrate the new CTA smoothly.
 
-Return ONLY valid JSON in this exact format:
+Return ONLY valid JSON in this exact format (no markdown blocks or explanations, just the JSON):
 {
-  "improved_content": "the full rewritten post with better CTA"
+  "improved_content": "the full rewritten post with the optimized CTA"
 }`;
 
     return runOptimization(post, 'cta', prompt);
@@ -151,16 +163,19 @@ Return ONLY valid JSON in this exact format:
 export async function suggestHashtags(post_id: string, user_id: string): Promise<OptimizationResult> {
     const post = await fetchPost(post_id, user_id);
 
-    const prompt = `You are a social media hashtag expert. Analyze the following ${post.platform} post and suggest the best performing hashtags.
+    const prompt = `You are an algorithm and discoverability expert for social media platforms. Your task is to provide the optimal mix of hashtags for the following ${post.platform} post.
 
 Post content:
 "${post.content}"
 
-Keep the post content the same but append optimized hashtags at the end.
+Instructions:
+1. Analyze the context, target audience, and main keywords of the post.
+2. Generate 4 to 7 highly strategic hashtags. Include a mix of broad trending tags for reach, and niche tags for targeted engagement.
+3. Append these suggested hashtags to the end of the post content seamlessly (or format them as appropriate for ${post.platform}).
 
-Return ONLY valid JSON in this exact format:
+Return ONLY valid JSON in this exact format (no markdown blocks or explanations, just the JSON):
 {
-  "improved_content": "the original post text with hashtags appended at the end",
+  "improved_content": "the original post text with the new hashtags appended correctly at the bottom",
   "suggested_hashtags": ["hashtag1", "hashtag2", "hashtag3", "hashtag4", "hashtag5"]
 }`;
 

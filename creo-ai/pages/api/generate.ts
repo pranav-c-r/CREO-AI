@@ -43,7 +43,7 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
         // 3. Build the post record
         const post = {
             user_id: userId,
-            created_at: new Date().toISOString(),
+            created_at: Date.now(),
             post_id: uuidv4(),
             content: generated.content,
             platform: typedPlatform,

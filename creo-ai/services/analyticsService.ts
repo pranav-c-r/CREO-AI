@@ -64,7 +64,8 @@ function buildEngagementTrend(posts: Post[]): EngagementDataPoint[] {
     const byDate: Record<string, { total: number; count: number }> = {};
 
     for (const post of posts) {
-        const date = post.created_at.substring(0, 10); // YYYY-MM-DD
+        const dateObj = new Date(post.created_at);
+        const date = dateObj.toISOString().substring(0, 10); // YYYY-MM-DD
         if (!byDate[date]) byDate[date] = { total: 0, count: 0 };
         byDate[date].total += post.final_score;
         byDate[date].count += 1;

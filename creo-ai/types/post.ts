@@ -16,7 +16,7 @@ export interface GenerateResult {
 
 export interface Post {
   user_id: string;
-  created_at: string;
+  created_at: string | number;
   post_id: string;
   content: string;
   platform: Platform;
