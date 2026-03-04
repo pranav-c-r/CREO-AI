@@ -142,6 +142,21 @@ export default function CreatePage() {
   const [activeOptType, setActiveOptType] = useState<string>('');
   const [error, setError] = useState('');
 
+  // Image Generation State
+  const [imageMode, setImageMode] = useState<'none' | 'generate' | 'modify'>('none');
+  const [uploadedImage, setUploadedImage] = useState<File | null>(null);
+  const [uploadedImagePreview, setUploadedImagePreview] = useState<string | null>(null);
+  const [imagePrompt, setImagePrompt] = useState('');
+  const [generatingImage, setGeneratingImage] = useState(false);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadedImage(file);
+      setUploadedImagePreview(URL.createObjectURL(file));
+    }
+  };
+
   const getToken = (): string | null => {
     const token = localStorage.getItem('creo_token');
     if (!token) {
@@ -177,6 +192,49 @@ export default function CreatePage() {
       if (!res.ok) throw new Error(data.error || 'Generation failed');
 
       setPost(data);
+
+      // Handle Image Generation
+      if (imageMode !== 'none') {
+        setGeneratingImage(true);
+        try {
+          let base64 = '';
+          if (imageMode === 'modify' && uploadedImage) {
+            base64 = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.readAsDataURL(uploadedImage);
+              reader.onload = () => resolve(reader.result as string);
+              reader.onerror = (error) => reject(error);
+            });
+          }
+
+          const imageRes = await fetch('/api/image', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              post_id: data.post_id,
+              created_at: data.created_at, // DynamoDB sort key — required for UpdateCommand
+              mode: imageMode,
+              prompt: imageMode === 'generate' ? data.content : imagePrompt,
+              image_base64: base64 || undefined,
+            }),
+          });
+
+          if (imageRes.status === 401) { router.push('/login'); return; }
+
+          const imageData = await imageRes.json();
+          if (!imageRes.ok) throw new Error(imageData.error || 'Image generation failed');
+
+          setPost(prev => prev ? { ...prev, image_url: imageData.image_url } : null);
+        } catch (imgErr) {
+          console.error(imgErr);
+          setError(imgErr instanceof Error ? imgErr.message : 'Image generation failed');
+        } finally {
+          setGeneratingImage(false);
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -274,6 +332,67 @@ export default function CreatePage() {
           <p className="text-xs text-gray-400 mt-1.5 text-right">{idea.length} chars</p>
         </div>
 
+        {/* Visuals Section */}
+        <div className="pt-2 border-t border-gray-100">
+          <label className="block text-sm font-medium text-gray-700 mb-3">Visuals</label>
+          <div className="flex bg-gray-100 p-1 rounded-xl mb-4">
+            <button
+              onClick={() => setImageMode('none')}
+              className={`flex-1 py-1.5 px-3 rounded-lg text-sm font-medium transition-all ${imageMode === 'none' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              No Image
+            </button>
+            <button
+              onClick={() => setImageMode('generate')}
+              className={`flex-1 py-1.5 px-3 rounded-lg text-sm font-medium transition-all ${imageMode === 'generate' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              AI Generate
+            </button>
+            <button
+              onClick={() => setImageMode('modify')}
+              className={`flex-1 py-1.5 px-3 rounded-lg text-sm font-medium transition-all ${imageMode === 'modify' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              Upload & Modify
+            </button>
+          </div>
+
+          {imageMode === 'modify' && (
+            <div className="space-y-4">
+              <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:bg-gray-50 hover:border-blue-300 transition-colors relative">
+                <input
+                  type="file"
+                  accept="image/png, image/jpeg, image/webp"
+                  onChange={handleImageUpload}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+                {uploadedImagePreview ? (
+                  <div className="flex flex-col items-center">
+                    <img src={uploadedImagePreview} alt="Preview" className="h-24 w-auto rounded-lg shadow-sm mb-2" />
+                    <span className="text-xs text-gray-500">Tap to change image</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center text-gray-500">
+                    <svg className="w-8 h-8 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    <span className="text-sm font-medium">Click to upload reference image</span>
+                  </div>
+                )}
+              </div>
+              <div>
+                <input
+                  type="text"
+                  value={imagePrompt}
+                  onChange={(e) => setImagePrompt(e.target.value)}
+                  placeholder="How should AI modify this image? (e.g. 'remove background', 'make it snowy')"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+          )}
+          {imageMode === 'generate' && (
+            <p className="text-xs text-gray-500 italic px-2">An AI image will be generated automatically based on your post idea.</p>
+          )}
+        </div>
+
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
             {error}
@@ -315,10 +434,52 @@ export default function CreatePage() {
               </div>
             </div>
 
-            {/* Content text */}
-            <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
-              {post.content}
+            {/* Content text and image */}
+            <div className="space-y-4">
+              {/* Display Image if exists */}
+              {post.image_url && (
+                <div className="relative group w-full rounded-xl overflow-hidden bg-gray-100 border border-gray-200 shadow-sm">
+                  <img src={post.image_url} alt="Generated post visual" className="w-full h-auto object-cover max-h-96" />
+                  {/* Download Button Overlay */}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all duration-300 flex items-end justify-end p-3">
+                    <a
+                      href={post.image_url}
+                      download="creo-ai-visual.jpg"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 bg-white/90 hover:bg-white text-gray-800 font-semibold text-sm px-4 py-2.5 rounded-xl shadow-lg opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300 backdrop-blur-sm"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      Download
+                    </a>
+                  </div>
+                  {/* Badge */}
+                  <div className="absolute top-3 left-3 bg-black/50 text-white text-xs font-medium px-2.5 py-1 rounded-full backdrop-blur-sm flex items-center gap-1.5">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" /></svg>
+                    AI Generated
+                  </div>
+                </div>
+              )}
+              {generatingImage && (
+                <div className="w-full h-64 rounded-xl bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-100 flex flex-col items-center justify-center gap-3">
+                  <div className="relative">
+                    <div className="w-12 h-12 rounded-full border-4 border-blue-100 border-t-blue-500 animate-spin" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-lg">🎨</span>
+                    </div>
+                  </div>
+                  <span className="text-sm font-semibold text-blue-700">Generating image with Nova Canvas...</span>
+                  <span className="text-xs text-blue-400">This may take 10–20 seconds</span>
+                </div>
+              )}
+              <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                {post.content}
+              </div>
             </div>
+
 
             {/* Hashtags */}
             {post.suggested_hashtags && post.suggested_hashtags.length > 0 && (

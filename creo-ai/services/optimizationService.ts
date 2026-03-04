@@ -7,7 +7,7 @@ import { invokeModel } from '@/lib/bedrockClient';
 import { scoreContent } from '@/services/scoringService';
 import { dynamoDb } from '@/lib/dynamoClient';
 import { PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { OptimizationResult, Platform, Post } from '@/types/post';
 
 const OPTIMIZATIONS_TABLE = process.env.OPTIMIZATIONS_TABLE!;
@@ -50,7 +50,7 @@ async function saveOptimization(
             Item: {
                 post_id,
                 created_at: new Date().toISOString(),
-                optimization_id: uuidv4(),
+                optimization_id: randomUUID(),
                 optimization_type,
                 old_score,
                 new_score,
@@ -124,7 +124,7 @@ Instructions:
 3. Ensure the tone matches the rest of the post and is suitable for ${post.platform}.
 4. Do not alter the core message or the call-to-action; focus solely on making the beginning irresistible.
 
-Return ONLY valid JSON in this exact format (no markdown blocks or explanations, just the JSON):
+Return ONLY valid JSON in this exact format (no markdown blocks or explanations, just the JSON). Ensure that any newlines or quotes inside string values are properly escaped (e.g. \\n):
 {
   "improved_content": "the full rewritten post with the newly optimized powerful hook"
 }`;
@@ -149,7 +149,7 @@ Instructions:
 3. Depending on the post's context, the CTA could encourage commenting, sharing, clicking a link, or saving the post. Ensure the CTA feels natural and drives immediate action.
 4. Keep the original opening and body intact as much as possible, only modifying the text to integrate the new CTA smoothly.
 
-Return ONLY valid JSON in this exact format (no markdown blocks or explanations, just the JSON):
+Return ONLY valid JSON in this exact format (no markdown blocks or explanations, just the JSON). Ensure that any newlines or quotes inside string values are properly escaped (e.g. \\n):
 {
   "improved_content": "the full rewritten post with the optimized CTA"
 }`;
@@ -173,7 +173,7 @@ Instructions:
 2. Generate 4 to 7 highly strategic hashtags. Include a mix of broad trending tags for reach, and niche tags for targeted engagement.
 3. Append these suggested hashtags to the end of the post content seamlessly (or format them as appropriate for ${post.platform}).
 
-Return ONLY valid JSON in this exact format (no markdown blocks or explanations, just the JSON):
+Return ONLY valid JSON in this exact format (no markdown blocks or explanations, just the JSON). Ensure that any newlines or quotes inside string values are properly escaped (e.g. \\n):
 {
   "improved_content": "the original post text with the new hashtags appended correctly at the bottom",
   "suggested_hashtags": ["hashtag1", "hashtag2", "hashtag3", "hashtag4", "hashtag5"]

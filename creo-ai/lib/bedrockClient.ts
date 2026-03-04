@@ -51,7 +51,17 @@ export async function invokeModel<T>(prompt: string): Promise<T> {
             throw new Error(`No JSON found in model response: ${textContent}`);
         }
 
-        const extractedJson = jsonMatch[1] || jsonMatch[0];
+        let extractedJson = jsonMatch[1] || jsonMatch[0];
+
+        // Sanitize: escape unescaped control characters inside JSON string values.
+        // This regex perfectly captures string literals, then we escape newlines/tabs within them.
+        extractedJson = extractedJson.replace(/("(\\[^]|[^"\\])*")/g, (match) => {
+            return match
+                .replace(/\n/g, '\\n')
+                .replace(/\r/g, '\\r')
+                .replace(/\t/g, '\\t');
+        });
+
         return JSON.parse(extractedJson) as T;
     } catch (error) {
         console.error('[bedrockClient] Error:', error);

@@ -26,6 +26,7 @@ export interface Post {
   final_score: number;
   suggested_hashtags?: string[];
   idea?: string;
+  image_url?: string;
 }
 
 export interface CreatePostInput {

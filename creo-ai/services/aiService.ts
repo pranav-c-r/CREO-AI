@@ -33,7 +33,7 @@ Instructions:
 4. Conclude with a clear, subtle or direct call to action (CTA).
 5. Provide 3-5 highly relevant hashtags that mix broad appeal with niche targeting.
 
-Return ONLY valid JSON in this exact format (no markdown blocks, no explanation, just the JSON):
+Return ONLY valid JSON in this exact format (no markdown blocks, no explanation, just the JSON). Ensure that any newlines or quotes inside the string values are properly escaped (e.g., use \\n for line breaks):
 {
   "content": "the generated social media post text",
   "suggested_hashtags": ["hashtag1", "hashtag2", "hashtag3"]

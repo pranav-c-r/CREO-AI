@@ -24,7 +24,7 @@ Evaluate the post based on the following strict rubric (0 to 100 scale for each)
 - cta_score (0-100): Is there a clear next step or prompt for engagement (e.g., "drop a comment", "click the link")? Is it natural and effective?
 - final_score (0-100): Overall potential for high engagement, virality, and alignment with ${platform} algorithms.
 
-Return ONLY valid JSON in this exact format (no markdown blocks or explanations, just the JSON):
+Return ONLY valid JSON in this exact format (no markdown blocks or explanations, just the JSON). Ensure that any newlines or quotes inside string values are properly escaped (e.g. \\n):
 {
   "hook_score": <number 0-100 here>,
   "clarity_score": <number 0-100 here>,

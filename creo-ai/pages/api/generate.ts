@@ -8,7 +8,7 @@ import { generateContent } from '@/services/aiService';
 import { scoreContent } from '@/services/scoringService';
 import { dynamoDb } from '@/lib/dynamoClient';
 import { PutCommand } from '@aws-sdk/lib-dynamodb';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { Platform } from '@/types/post';
 
 const POSTS_TABLE = process.env.POSTS_TABLE!;
@@ -44,7 +44,7 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
         const post = {
             user_id: userId,
             created_at: Date.now(),
-            post_id: uuidv4(),
+            post_id: randomUUID(),
             content: generated.content,
             platform: typedPlatform,
             idea: idea.trim(),
