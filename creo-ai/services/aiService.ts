@@ -44,6 +44,8 @@ Instructions:
 4. Ensure the opening acts as a strong hook to stop the scroll.
 5. Conclude with a clear, subtle or direct call to action (CTA) in ${targetLanguage === 'English' ? 'English' : targetLanguage}.
 6. Provide 3-5 highly relevant hashtags that mix broad appeal with niche targeting, in ${targetLanguage === 'English' ? 'English' : targetLanguage}${culturalContext !== 'None' ? ', incorporating culturally relevant hashtags related to ' + culturalContext : ''}.
+7. CRITICAL: Return ONLY valid JSON. No explanations, no markdown blocks, no text before or after JSON.
+8. The content should be meaningful and not repetitive. Avoid repeating the same phrases multiple times.
 
 Return ONLY valid JSON in this exact format (no markdown blocks, no explanation, just the JSON). Ensure that any newlines or quotes inside the string values are properly escaped (e.g., use \\n for line breaks):
 {
@@ -56,6 +58,48 @@ Return ONLY valid JSON in this exact format (no markdown blocks, no explanation,
     // Validate response structure
     if (!result.content || !Array.isArray(result.suggested_hashtags)) {
         throw new Error('Invalid response structure from AI model');
+    }
+
+    // Additional validation for content quality
+    if (result.content.length < 10) {
+        throw new Error('Generated content is too short');
+    }
+
+    // Check for repetitive content (simple heuristic)
+    const words = result.content.split(/\s+/);
+    const uniqueWords = new Set(words);
+    if (words.length > 20 && uniqueWords.size / words.length < 0.3) {
+        // Content is too repetitive, try once more with a stronger prompt
+        return generateContentWithRetry(idea, platform, targetLanguage, culturalContext);
+    }
+
+    return result;
+}
+
+/**
+ * Retry function for content generation with stronger anti-repetition instructions
+ */
+async function generateContentWithRetry(
+    idea: string,
+    platform: Platform,
+    targetLanguage: string,
+    culturalContext: CulturalContext
+): Promise<GenerateResult> {
+    const retryPrompt = `Generate a unique, non-repetitive social media post for ${platform} in ${targetLanguage}.
+
+Topic: "${idea}"
+
+CRITICAL REQUIREMENTS:
+- Create original, meaningful content
+- DO NOT repeat phrases or sentences
+- Write naturally like a human would
+- Include 3-5 relevant hashtags
+- Return ONLY JSON format: {"content": "post text", "suggested_hashtags": ["tag1", "tag2"]}`;
+
+    const result = await invokeModel<GenerateResult>(retryPrompt);
+
+    if (!result.content || !Array.isArray(result.suggested_hashtags)) {
+        throw new Error('Invalid response structure from AI model on retry');
     }
 
     return result;

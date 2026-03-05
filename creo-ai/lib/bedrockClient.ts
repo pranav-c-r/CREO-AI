@@ -43,18 +43,40 @@ export async function invokeModel<T>(prompt: string): Promise<T> {
 
         const textContent = response.output.message.content[0].text;
 
-        // Extract JSON from the model text (handle markdown code blocks)
-        const jsonMatch = textContent.match(/```json\s*([\s\S]*?)```/)
-            || textContent.match(/({[\s\S]*})/);
+        // Extract JSON from the model text (handle various formats)
+        let jsonMatch = textContent.match(/```json\s*([\s\S]*?)```/)
+            || textContent.match(/```\s*([\s\S]*?)```/)
+            || textContent.match(/{[\s\S]*}/);
 
         if (!jsonMatch) {
-            throw new Error(`No JSON found in model response: ${textContent}`);
+            // Try to find JSON-like structure more aggressively
+            const lines = textContent.split('\n');
+            for (const line of lines) {
+                if (line.trim().startsWith('{') && line.trim().endsWith('}')) {
+                    jsonMatch = [line, line];
+                    break;
+                }
+            }
+        }
+
+        if (!jsonMatch) {
+            // Last resort: try to parse the entire response as JSON
+            try {
+                return JSON.parse(textContent.trim()) as T;
+            } catch {
+                throw new Error(`No JSON found in model response. Response was: "${textContent.substring(0, 200)}..."`);
+            }
         }
 
         let extractedJson = jsonMatch[1] || jsonMatch[0];
 
+        // Clean up the extracted JSON
+        extractedJson = extractedJson
+            .replace(/^[^{]*/, '')  // Remove anything before the first {
+            .replace(/[^}]*$/, '')  // Remove anything after the last }
+            .trim();
+
         // Sanitize: escape unescaped control characters inside JSON string values.
-        // This regex perfectly captures string literals, then we escape newlines/tabs within them.
         extractedJson = extractedJson.replace(/("(\\[^]|[^"\\])*")/g, (match) => {
             return match
                 .replace(/\n/g, '\\n')
@@ -62,7 +84,13 @@ export async function invokeModel<T>(prompt: string): Promise<T> {
                 .replace(/\t/g, '\\t');
         });
 
-        return JSON.parse(extractedJson) as T;
+        try {
+            return JSON.parse(extractedJson) as T;
+        } catch (parseError) {
+            console.error('[bedrockClient] JSON parse error:', parseError);
+            console.error('[bedrockClient] Extracted JSON:', extractedJson);
+            throw new Error(`Failed to parse JSON from model response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+        }
     } catch (error) {
         console.error('[bedrockClient] Error:', error);
         throw error;
