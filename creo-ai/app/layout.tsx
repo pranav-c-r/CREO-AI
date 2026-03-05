@@ -13,7 +13,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className="h-full">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link
@@ -21,7 +21,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen">
+      <body className="bg-gray-50 text-gray-900 font-sans antialiased h-full m-0 p-0">
         <AppLayout>{children}</AppLayout>
       </body>
     </html>

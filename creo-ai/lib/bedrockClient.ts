@@ -4,12 +4,20 @@ import {
 } from '@aws-sdk/client-bedrock-runtime';
 
 const bedrockClient = new BedrockRuntimeClient({
-    region: process.env.AWS_REGION!,
+    region: process.env.AWS_REGION || 'us-east-1',
     credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
     },
 });
+
+// Add debug logging (remove sensitive data in production)
+if (process.env.NODE_ENV === 'development') {
+    console.log('[bedrockClient] AWS Region:', process.env.AWS_REGION);
+    console.log('[bedrockClient] AWS Access Key ID exists:', !!process.env.AWS_ACCESS_KEY_ID);
+    console.log('[bedrockClient] AWS Secret Access Key exists:', !!process.env.AWS_SECRET_ACCESS_KEY);
+    console.log('[bedrockClient] Bedrock Model ID:', process.env.BEDROCK_MODEL_ID || 'amazon.nova-lite-v1:0');
+}
 
 /**
  * Invoke a text model via Bedrock (Converse API) and return parsed JSON.
@@ -93,6 +101,35 @@ export async function invokeModel<T>(prompt: string): Promise<T> {
         }
     } catch (error) {
         console.error('[bedrockClient] Error:', error);
+
+        // Provide specific guidance for AWS Access Denied errors
+        if (error instanceof Error) {
+            const errorMessage = error.message.toLowerCase();
+
+            if (errorMessage.includes('access denied') || errorMessage.includes('unauthorized') || errorMessage.includes('403')) {
+                console.error('[bedrockClient] AWS Access Denied - Troubleshooting:');
+                console.error('1. Check AWS credentials in .env file');
+                console.error('2. Verify IAM user has Bedrock access permissions');
+                console.error('3. Ensure AWS region is correct and Bedrock is available there');
+                console.error('4. Check if the specific model is available in your region');
+                throw new Error('AWS Access Denied: Please check your AWS credentials and Bedrock permissions. See console for details.');
+            }
+
+            if (errorMessage.includes('credentials') || errorMessage.includes('could not load credentials')) {
+                console.error('[bedrockClient] AWS Credentials Issue - Troubleshooting:');
+                console.error('1. Ensure AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are set in .env');
+                console.error('2. Verify the credentials are correct and not expired');
+                throw new Error('AWS Credentials Error: Please check your AWS credentials configuration. See console for details.');
+            }
+
+            if (errorMessage.includes('region') || errorMessage.includes('invalid region')) {
+                console.error('[bedrockClient] AWS Region Issue - Troubleshooting:');
+                console.error('1. Ensure AWS_REGION is set to a valid region (e.g., us-east-1)');
+                console.error('2. Verify Bedrock is available in the specified region');
+                throw new Error('AWS Region Error: Please check your AWS region configuration. See console for details.');
+            }
+        }
+
         throw error;
     }
 }
