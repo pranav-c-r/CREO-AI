@@ -17,6 +17,7 @@ import {
   ConversationalFlow,
   ConversationStarter
 } from '@/components/ConversationalUI';
+import { AgentUI } from '@/components/AgentUI';
 import {
   PenTool,
   Image,
@@ -228,11 +229,16 @@ function OptimizationCard({
 /* ── Main Create Page ── */
 export default function CreatePage() {
   const router = useRouter();
-  const [mode, setMode] = useState<'simple' | 'conversational'>('simple');
+  const [mode, setMode] = useState<'simple' | 'conversational' | 'agent'>('simple');
   const [idea, setIdea] = useState('');
   const [platform, setPlatform] = useState<Platform>('LinkedIn');
   const [targetLanguage, setTargetLanguage] = useState<IndicLanguage>('English');
   const [culturalContext, setCulturalContext] = useState<CulturalContext>('None');
+
+  // Agent Mode has its own isolated selectors so Quick Mode settings don't leak in
+  const [agentPlatform, setAgentPlatform] = useState<Platform>('Instagram');
+  const [agentTargetLanguage, setAgentTargetLanguage] = useState<IndicLanguage>('English');
+  const [agentCulturalContext, setAgentCulturalContext] = useState<CulturalContext>('None');
   const [generating, setGenerating] = useState(false);
   const [post, setPost] = useState<Post | null>(null);
   const [optimizing, setOptimizing] = useState<string | null>(null);
@@ -550,6 +556,18 @@ export default function CreatePage() {
       if (!res.ok) throw new Error(data.error || 'Optimization failed');
 
       setOptimizationResult(data);
+      // Update the engagement score breakdown to reflect the optimized scores
+      setPost((prev) =>
+        prev
+          ? {
+              ...prev,
+              hook_score: data.improved_score.hook_score,
+              clarity_score: data.improved_score.clarity_score,
+              cta_score: data.improved_score.cta_score,
+              final_score: data.improved_score.final_score,
+            }
+          : null
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Optimization failed');
     } finally {
@@ -597,18 +615,33 @@ export default function CreatePage() {
             </button>
             <button
               onClick={() => setMode('conversational')}
-              className="px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-              style={mode === 'conversational'
-                ? { background: 'linear-gradient(135deg, #a855f7, #7e22ce)', color: 'white', boxShadow: '0 4px 14px rgba(168,85,247,0.35)' }
-                : { background: 'white', color: '#475569', border: '1px solid #e2e8f0' }
-              }
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                mode === 'conversational'
+                  ? 'bg-blue-500 text-white shadow-md'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-400'
+              }`}
             >
-              💬 Guided Mode
+              Old Guided Mode
+            </button>
+            <button
+              onClick={() => setMode('agent')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+                mode === 'agent'
+                  ? 'bg-blue-600 text-white shadow-md order-none'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-400'
+              }`}
+            >
+              <Sparkles className="w-4 h-4" /> Agent Mode
             </button>
           </div>
-          <span className="text-xs text-slate-400 font-medium ml-auto">
-            {mode === 'simple' ? 'Perfect for quick content creation' : 'Ideal for detailed, personalized content'}
-          </span>
+          <div className="text-xs text-gray-500 ml-auto">
+            {mode === 'simple'
+              ? 'Perfect for quick content creation'
+              : mode === 'agent' 
+                ? 'Interactive AI assistant to build your post'
+                : 'Legacy detailed content flow'
+            }
+          </div>
         </div>
       </motion.div>
 
@@ -713,6 +746,76 @@ export default function CreatePage() {
                 <p className="text-red-700 text-sm font-medium">{error}</p>
               </motion.div>
             )}
+          </Card>
+        </motion.div>
+      )}
+
+      {/* ── Agent Mode ── */}
+      {mode === 'agent' && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Card className="p-6 sm:p-8 space-y-6">
+            {/* Agent-mode platform / language selectors */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Platform */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Platform</label>
+                <div className="flex gap-2">
+                  {PLATFORMS.map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setAgentPlatform(p)}
+                      className={`flex-1 py-2 rounded-xl border-2 text-xs font-medium transition-all ${
+                        agentPlatform === p
+                          ? 'bg-blue-50 border-blue-500 text-blue-700'
+                          : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`}
+                    >
+                      <span className="block text-base">{PLATFORM_META[p].icon}</span>
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Language */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Language</label>
+                <select
+                  value={agentTargetLanguage}
+                  onChange={(e) => setAgentTargetLanguage(e.target.value as IndicLanguage)}
+                  className="w-full rounded-xl border-2 border-gray-200 px-3 py-2 text-sm text-gray-700 bg-white focus:border-blue-400 focus:outline-none"
+                >
+                  {LANGUAGES.map((l) => (
+                    <option key={l} value={l}>{LANGUAGE_META[l].native} ({l})</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Cultural Context */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Cultural Context</label>
+                <select
+                  value={agentCulturalContext}
+                  onChange={(e) => setAgentCulturalContext(e.target.value as CulturalContext)}
+                  className="w-full rounded-xl border-2 border-gray-200 px-3 py-2 text-sm text-gray-700 bg-white focus:border-blue-400 focus:outline-none"
+                >
+                  {CULTURAL_CONTEXTS.map((c) => (
+                    <option key={c} value={c}>{CULTURAL_CONTEXT_META[c].icon} {c}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <AgentUI 
+              platform={agentPlatform}
+              targetLanguage={agentTargetLanguage}
+              culturalContext={agentCulturalContext}
+              onPostGenerated={(newPost) => setPost(newPost)}
+            />
           </Card>
         </motion.div>
       )}

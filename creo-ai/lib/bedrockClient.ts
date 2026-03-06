@@ -31,7 +31,7 @@ export async function invokeModel<T>(prompt: string): Promise<T> {
             ],
             inferenceConfig: {
                 maxTokens: 2048,
-                temperature: 0,
+                temperature: 0.3,
             },
         });
 

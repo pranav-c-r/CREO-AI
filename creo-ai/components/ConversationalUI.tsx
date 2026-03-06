@@ -231,7 +231,7 @@ export function ConversationalQuestion({
           loading={isLoading}
           size="sm"
           icon={isLoading ? null : <ChevronRight className="w-4 h-4" />}
-          className="min-w-[100px]"
+          className="min-w-25"
         >
           {isLoading ? 'Processing...' : isLastQuestion ? 'Complete' : 'Next'}
         </Button>
@@ -426,7 +426,7 @@ export function ConversationStarter({ onStart, isLoading = false }: Conversation
           loading={isLoading}
           size="lg"
           icon={<ChevronRight className="w-5 h-5" />}
-          className="min-w-[150px]"
+          className="min-w-37.5"
         >
           {isLoading ? 'Starting...' : 'Start Conversation'}
         </Button>

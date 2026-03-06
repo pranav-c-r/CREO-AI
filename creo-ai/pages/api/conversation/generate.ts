@@ -61,14 +61,15 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
 
     // Start new conversation if needed
     if (!conversationId && user_input) {
-      const conversation = conversationalService.startConversation(user_input, randomUUID());
-      conversationId = conversation.flowId;
+      const newConversationId = randomUUID();
+      const conversation = conversationalService.startConversation(user_input, newConversationId);
+      conversationId = newConversationId;
       
       return res.status(200).json({
-        conversation_id: conversation.flowId,
+        conversation_id: newConversationId,
         conversation_state: conversation,
-        current_question: conversationalService.getCurrentQuestion(conversation.flowId),
-        progress: conversationalService.getProgress(conversation.flowId),
+        current_question: conversationalService.getCurrentQuestion(newConversationId),
+        progress: conversationalService.getProgress(newConversationId),
         is_new: true
       });
     }

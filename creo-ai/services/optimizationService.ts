@@ -78,10 +78,17 @@ async function runOptimization(
         throw new Error('No improved_content in optimization response');
     }
 
-    const [originalScore, improvedScore] = await Promise.all([
-        scoreContent(post.content, post.platform as Platform),
-        scoreContent(result.improved_content, post.platform as Platform),
-    ]);
+    // Use the scores already stored on the post as the baseline (avoids re-scoring drift
+    // from temperature variation, which would make the "before" score inconsistent with
+    // what is displayed in the engagement score breakdown).
+    const originalScore = {
+        hook_score: post.hook_score,
+        clarity_score: post.clarity_score,
+        cta_score: post.cta_score,
+        final_score: post.final_score,
+    };
+
+    const improvedScore = await scoreContent(result.improved_content, post.platform as Platform);
 
     const improvement = Math.max(
         0,
