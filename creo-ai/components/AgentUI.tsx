@@ -17,6 +17,8 @@ import {
   Hash,
   Copy,
   CheckCheck,
+  Square,
+  Mic
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -67,7 +69,101 @@ export function AgentUI({ platform, targetLanguage, culturalContext, onPostGener
   const [initialPrompt, setInitialPrompt] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [error, setError] = useState('');
 
+
+  // Audio recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+
+  const recognitionRef = useRef<any>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Map language names to Web Speech API BCP-47 codes
+  const SPEECH_LANG_MAP: Record<string, string> = {
+    English: "en-US",
+    Hindi: "hi-IN",
+    Marathi: "mr-IN",
+    Tamil: "ta-IN",
+    Bengali: "bn-IN",
+    Telugu: "te-IN",
+    Gujarati: "gu-IN",
+    Kannada: "kn-IN",
+    Malayalam: "ml-IN",
+    Punjabi: "pa-IN",
+  };
+
+  const startRecording = async () => {
+    try {
+      const SpeechRecognition =
+        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+      if (!SpeechRecognition) {
+        setError("Speech recognition is not supported in this browser. Please use Chrome.");
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = SPEECH_LANG_MAP[targetLanguage] || "en-US";
+      recognition.continuous = true;
+      recognition.interimResults = false;
+
+      recognition.onresult = (event: any) => {
+        const last = event.results[event.results.length - 1];
+        if (last.isFinal) {
+          const transcript = last[0].transcript;
+          setInitialPrompt((prev) => (prev ? prev + " " + transcript : transcript));
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error("Speech recognition error:", event.error);
+        if (event.error !== "no-speech") {
+          setError("Speech recognition error: " + event.error);
+          stopRecording();
+        }
+      };
+
+      recognition.onend = () => {
+        // Auto-restart if still recording (browser stops after silence)
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.start();
+          } catch {
+            // Already started or stopped
+          }
+        }
+      };
+
+      recognition.start();
+      recognitionRef.current = recognition;
+
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      timerRef.current = setInterval(() => {
+        setRecordingTime((prev) => prev + 1);
+      }, 1000);
+    } catch (error) {
+      console.error("Failed to start recording:", error);
+      setError("Could not start speech recognition. Please check permissions.");
+    }
+  };
+
+  const stopRecording = () => {
+    setIsRecording(false);
+
+    if (recognitionRef.current) {
+      recognitionRef.current.onend = null; // prevent auto-restart
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
   // v6 useChat: configure via DefaultChatTransport (api + extra body fields)
   const { messages, status, addToolOutput, sendMessage, setMessages } = useChat({
     transport: new DefaultChatTransport({
@@ -144,10 +240,32 @@ export function AgentUI({ platform, targetLanguage, culturalContext, onPostGener
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
         <div className="text-center space-y-2">
           <h3 className="text-xl font-semibold text-gray-800">Let AI Guide You</h3>
-          <p className="text-gray-600">
-            Tell me briefly what you want to post about, and I&apos;ll ask exactly what I need to make it perfect.
+          <div className="flex justify-center items-center gap-4">
+            <p className="text-gray-600">
+            Tell me briefly what you want to post about, and I&apos;ll ask exactly what I need to make it perfect
           </p>
+          <motion.button
+          onClick={isRecording ? stopRecording : startRecording}
+          className={`p-2.5 rounded-xl transition-all flex items-center gap-2 ${isRecording
+            ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg'
+            : 'bg-white border border-gray-200 hover:border-blue-300 text-gray-600 hover:text-blue-600 shadow-sm hover:shadow-md'
+            }`}
+          title={isRecording ? 'Stop recording' : 'Record audio'}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          {isRecording ? (
+            <>
+              <Square className="w-4 h-4 fill-current" />
+              <span className="text-xs font-semibold">{recordingTime}s</span>
+            </>
+          ) : (
+            <Mic className="w-4 h-4" />
+          )}
+        </motion.button>
+          </div>
         </div>
+        
 
         <form onSubmit={startAgent} className="max-w-2xl mx-auto space-y-4">
           <Textarea
@@ -162,9 +280,9 @@ export function AgentUI({ platform, targetLanguage, culturalContext, onPostGener
               type="submit"
               disabled={!initialPrompt.trim() || isProcessing}
               size="lg"
-              icon={<Sparkles className="w-5 h-5" />}
+              icon={<Sparkles className="w-5 h-5 relative z-50" />}
             >
-              Start Creating
+              <p className='relative z-50'>Start Creating</p>
             </Button>
           </div>
         </form>
@@ -205,11 +323,10 @@ export function AgentUI({ platform, targetLanguage, culturalContext, onPostGener
                 {textContent && !hasGeneratePost && (
                   <div className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     <div
-                      className={`max-w-[85%] rounded-2xl p-4 ${
-                        m.role === 'user'
-                          ? 'bg-blue-600 text-white shadow-md'
-                          : 'bg-white text-gray-800 shadow-sm border border-gray-100'
-                      }`}
+                      className={`max-w-[85%] rounded-2xl p-4 ${m.role === 'user'
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'bg-white text-gray-800 shadow-sm border border-gray-100'
+                        }`}
                     >
                       <p className="whitespace-pre-wrap text-sm leading-relaxed">{textContent}</p>
                     </div>

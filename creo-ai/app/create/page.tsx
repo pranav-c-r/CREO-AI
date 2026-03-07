@@ -4,7 +4,7 @@
  * Create Page — Modern AI Content Generation with Enhanced UI/UX
  * Features: Smooth animations, modern components, improved visual hierarchy
  */
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Post, OptimizationResult, IndicLanguage, CulturalContext } from '@/types/post';
@@ -29,7 +29,9 @@ import {
   Download,
   X,
   Check,
-  Loader2
+  Loader2,
+  Mic,
+  Square
 } from 'lucide-react';
 
 type Platform = 'Twitter' | 'LinkedIn' | 'Instagram';
@@ -259,6 +261,99 @@ export default function CreatePage() {
   const [uploadedImagePreview, setUploadedImagePreview] = useState<string | null>(null);
   const [imagePrompt, setImagePrompt] = useState('');
   const [generatingImage, setGeneratingImage] = useState(false);
+
+  // Audio recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+
+  const recognitionRef = useRef<any>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Map language names to Web Speech API BCP-47 codes
+  const SPEECH_LANG_MAP: Record<string, string> = {
+    English: "en-US",
+    Hindi: "hi-IN",
+    Marathi: "mr-IN",
+    Tamil: "ta-IN",
+    Bengali: "bn-IN",
+    Telugu: "te-IN",
+    Gujarati: "gu-IN",
+    Kannada: "kn-IN",
+    Malayalam: "ml-IN",
+    Punjabi: "pa-IN",
+  };
+
+  const startRecording = async () => {
+    try {
+      const SpeechRecognition =
+        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+      if (!SpeechRecognition) {
+        setError("Speech recognition is not supported in this browser. Please use Chrome.");
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = SPEECH_LANG_MAP[targetLanguage] || "en-US";
+      recognition.continuous = true;
+      recognition.interimResults = false;
+
+      recognition.onresult = (event: any) => {
+        const last = event.results[event.results.length - 1];
+        if (last.isFinal) {
+          const transcript = last[0].transcript;
+          setIdea((prev) => (prev ? prev + " " + transcript : transcript));
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error("Speech recognition error:", event.error);
+        if (event.error !== "no-speech") {
+          setError("Speech recognition error: " + event.error);
+          stopRecording();
+        }
+      };
+
+      recognition.onend = () => {
+        // Auto-restart if still recording (browser stops after silence)
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.start();
+          } catch {
+            // Already started or stopped
+          }
+        }
+      };
+
+      recognition.start();
+      recognitionRef.current = recognition;
+
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      timerRef.current = setInterval(() => {
+        setRecordingTime((prev) => prev + 1);
+      }, 1000);
+    } catch (error) {
+      console.error("Failed to start recording:", error);
+      setError("Could not start speech recognition. Please check permissions.");
+    }
+  };
+
+  const stopRecording = () => {
+    setIsRecording(false);
+
+    if (recognitionRef.current) {
+      recognitionRef.current.onend = null; // prevent auto-restart
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -560,12 +655,12 @@ export default function CreatePage() {
       setPost((prev) =>
         prev
           ? {
-              ...prev,
-              hook_score: data.improved_score.hook_score,
-              clarity_score: data.improved_score.clarity_score,
-              cta_score: data.improved_score.cta_score,
-              final_score: data.improved_score.final_score,
-            }
+            ...prev,
+            hook_score: data.improved_score.hook_score,
+            clarity_score: data.improved_score.clarity_score,
+            cta_score: data.improved_score.cta_score,
+            final_score: data.improved_score.final_score,
+          }
           : null
       );
     } catch (err) {
@@ -576,10 +671,10 @@ export default function CreatePage() {
   };
 
   const scoreColors: Record<string, string> = {
-    hook_score:    '#f59e0b',
+    hook_score: '#f59e0b',
     clarity_score: '#14b8a6',
-    cta_score:     '#a855f7',
-    final_score:   '#0d9488',
+    cta_score: '#a855f7',
+    final_score: '#0d9488',
   };
 
   return (
@@ -615,21 +710,19 @@ export default function CreatePage() {
             </button>
             <button
               onClick={() => setMode('conversational')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                mode === 'conversational'
-                  ? 'bg-blue-500 text-white shadow-md'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-400'
-              }`}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${mode === 'conversational'
+                ? 'bg-blue-500 text-white shadow-md'
+                : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-400'
+                }`}
             >
               Old Guided Mode
             </button>
             <button
               onClick={() => setMode('agent')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
-                mode === 'agent'
-                  ? 'bg-blue-600 text-white shadow-md order-none'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-400'
-              }`}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${mode === 'agent'
+                ? 'bg-blue-600 text-white shadow-md order-none'
+                : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-400'
+                }`}
             >
               <Sparkles className="w-4 h-4" /> Agent Mode
             </button>
@@ -637,7 +730,7 @@ export default function CreatePage() {
           <div className="text-xs text-gray-500 ml-auto">
             {mode === 'simple'
               ? 'Perfect for quick content creation'
-              : mode === 'agent' 
+              : mode === 'agent'
                 ? 'Interactive AI assistant to build your post'
                 : 'Legacy detailed content flow'
             }
@@ -728,7 +821,7 @@ export default function CreatePage() {
               <ConversationalFlow
                 conversation={conversationState}
                 onAnswer={submitConversationAnswer}
-                onNext={() => {}}
+                onNext={() => { }}
                 onBack={goBackInConversation}
                 onReset={resetConversation}
                 isLoading={isConversationLoading}
@@ -768,11 +861,10 @@ export default function CreatePage() {
                     <button
                       key={p}
                       onClick={() => setAgentPlatform(p)}
-                      className={`flex-1 py-2 rounded-xl border-2 text-xs font-medium transition-all ${
-                        agentPlatform === p
-                          ? 'bg-blue-50 border-blue-500 text-blue-700'
-                          : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-                      }`}
+                      className={`flex-1 py-2 rounded-xl border-2 text-xs font-medium transition-all ${agentPlatform === p
+                        ? 'bg-blue-50 border-blue-500 text-blue-700'
+                        : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                        }`}
                     >
                       <span className="block text-base">{PLATFORM_META[p].icon}</span>
                       {p}
@@ -810,7 +902,7 @@ export default function CreatePage() {
               </div>
             </div>
 
-            <AgentUI 
+            <AgentUI
               platform={agentPlatform}
               targetLanguage={agentTargetLanguage}
               culturalContext={agentCulturalContext}
@@ -926,9 +1018,30 @@ export default function CreatePage() {
 
             {/* Idea textarea */}
             <div>
-              <label htmlFor="idea" className="block text-sm font-semibold text-gray-700 mb-3 sm:mb-4">
-                Your content idea
-              </label>
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <label htmlFor="idea" className="block text-sm font-semibold text-gray-700">
+                  Your content idea
+                </label>
+                <motion.button
+                  onClick={isRecording ? stopRecording : startRecording}
+                  className={`p-2.5 rounded-xl transition-all flex items-center gap-2 ${isRecording
+                    ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg'
+                    : 'bg-white border border-gray-200 hover:border-blue-300 text-gray-600 hover:text-blue-600 shadow-sm hover:shadow-md'
+                    }`}
+                  title={isRecording ? 'Stop recording' : 'Record audio'}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  {isRecording ? (
+                    <>
+                      <Square className="w-4 h-4 fill-current" />
+                      <span className="text-xs font-semibold">{recordingTime}s</span>
+                    </>
+                  ) : (
+                    <Mic className="w-4 h-4" />
+                  )}
+                </motion.button>
+              </div>
               <Textarea
                 id="idea"
                 value={idea}
@@ -941,13 +1054,12 @@ export default function CreatePage() {
                 <p className="text-xs text-gray-400">{idea.length} characters</p>
                 {idea.length > 0 && (
                   <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${
-                      idea.length < 50 ? 'bg-red-500' :
+                    <div className={`w-2 h-2 rounded-full ${idea.length < 50 ? 'bg-red-500' :
                       idea.length < 100 ? 'bg-yellow-500' : 'bg-green-500'
-                    }`} />
+                      }`} />
                     <span className="text-xs text-gray-500">
                       {idea.length < 50 ? 'Too short' :
-                       idea.length < 100 ? 'Good length' : 'Great detail'}
+                        idea.length < 100 ? 'Good length' : 'Great detail'}
                     </span>
                   </div>
                 )}
@@ -1013,7 +1125,7 @@ export default function CreatePage() {
                 </div>
               )}
               {imageMode === 'generate' && (
-                <div className="p-4 rounded-xl" style={{ background: 'linear-gradient(135deg, rgba(20,184,166,0.08), rgba(168,85,247,0.06))', border: '1px solid rgba(20,184,166,0.2)' }}>
+                <div className="p-4 rounded-xl " style={{ background: 'linear-gradient(135deg, rgba(20,184,166,0.08), rgba(168,85,247,0.06))', border: '1px solid rgba(20,184,166,0.2)' }}>
                   <div className="flex items-center gap-3">
                     <Sparkles className="w-5 h-5 text-teal-600" />
                     <p className="text-sm font-medium text-teal-700">An AI image will be generated automatically based on your post idea.</p>
@@ -1037,10 +1149,10 @@ export default function CreatePage() {
               disabled={generating || !idea.trim()}
               loading={generating}
               size="lg"
-              icon={<Sparkles className="w-5 h-5" />}
-              className="w-full shadow-lg hover:shadow-xl"
+              icon={<Sparkles className="w-5 h-5 relative z-50" />}
+              className="w-full  shadow-lg  hover:shadow-xl"
             >
-              {generating ? 'Generating with AI...' : 'Generate Content'}
+              <p className='relative z-50'>{generating ? 'Generating with AI...' : 'Generate Content'}</p>
             </Button>
           </Card>
         </motion.div>
